@@ -1,8 +1,12 @@
 //import { useState } from 'react'
 //import reactLogo from './assets/react.svg'
 //import viteLogo from '/vite.svg'
-import './App.css'
-import { DataTable } from './components/DataTable'
+//import './App.css'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { TableWidget } from './components/TableWidget'
+import { PasswordProvider } from './data/PasswordContext'
+import GenPasswordButton from './components/GenPasswordButton'
+//import { DataTable } from './components/DataTable'
 
 function App() {
   /*const [count, _] = useState(0)
@@ -40,8 +44,23 @@ function App() {
   */
 
   return (
-    <div className='w-md p-4 rounded-lg'>
-      <DataTable />
+    <div className='w-md p-4 rounded-lg' style={{ userSelect: 'none' }}>
+      <PasswordProvider>
+      
+      <Tabs defaultValue="hasla">
+      <TabsList className="w-full flex justify-between">
+        <TabsTrigger value="hasla" className="flex-1 text-center">Hasła</TabsTrigger>
+        <TabsTrigger value="generuj" className="flex-1 text-center">Generuj</TabsTrigger>
+      </TabsList>
+      <TabsContent value="hasla"><TableWidget /></TabsContent>
+      <TabsContent value="generuj">
+        <GenPasswordButton />
+      </TabsContent>
+      </Tabs>
+      
+      
+      </PasswordProvider>
+      
     </div>
   )
 }

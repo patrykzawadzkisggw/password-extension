@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "version": "1.0.0",
-    "name": "My Vite Extension",
+    "name": "SecureBox",
     "action": {
       "default_popup": "index.html"
     },
@@ -18,16 +18,11 @@
     ],
     "content_scripts": [
     {
-      "matches": ["*://*.amazon.pl/*"],
-      "js": ["content.js"],
-      "css": ["index.css"]
-    }
-  ],
-  "web_accessible_resources": [
-    {
-      "resources": ["index.js", "index.css"],
-      "matches": ["*://*.amazon.pl/*"]
+      "matches": ["http://*/*",
+      "https://*/*"],
+      "js": ["content.js"]
     }
   ]
+  
   }
   

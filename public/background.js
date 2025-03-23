@@ -1,4 +1,4 @@
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+/*chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     // Sprawdzamy, czy strona jest w pełni załadowana
     if (changeInfo.status === "complete" && tab.url && tab.url.includes("/login-clear")) {
         chrome.scripting.executeScript({
@@ -69,4 +69,25 @@ function addButtonToForm() {
     } else {
         console.error("Nie znaleziono formularza o name='intForm'.");
     }
-}
+}*/
+
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action === "fillForm") {
+      const email = message.email;
+      const password = message.password;
+      const url = message.url;
+      chrome.tabs.create({ url: url }, (tab) => {
+        chrome.tabs.onUpdated.addListener(function listener(tabId, changeInfo) {
+          if (tabId === tab.id && changeInfo.status === "complete") {
+            chrome.tabs.sendMessage(tabId, {
+              action: "fillForm",
+              email: email,
+              password: password
+            });
+            chrome.tabs.onUpdated.removeListener(listener);
+          }
+        });
+      });
+    }
+  });
