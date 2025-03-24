@@ -25,9 +25,7 @@
     document.head.appendChild(link);
   })();*/
 
-  // content.js
 (function () {
-  // Funkcja wypełniająca pole email/login
   function fillEmailField(emailText) {
     const selectors = [
       '#emailId',
@@ -63,7 +61,6 @@
     return fieldFound;
   }
 
-  // Funkcja wypełniająca pole hasła
   function fillPasswordField(passwordText) {
     const selectors = [
       '#password',
@@ -98,11 +95,11 @@
     return fieldFound;
   }
 
-  // Funkcja klikająca przycisk submit
   function clickSubmitButton() {
     const buttonSelectors = [
       'button[type="submit"]',
       'input[type="submit"]',
+	    '#login-button',
       'button:contains("loguje się")',
       'button:contains("Zaloguj się")',
       'button:contains("log in")',
@@ -133,6 +130,7 @@
     };
 
     for (const selector of buttonSelectors) {
+console.log(selector)
       let button;
       if (selector.includes(':contains')) {
         button = findButtonWithText(selector);
@@ -155,7 +153,7 @@
     return buttonFound;
   }
 
-  // Funkcja klikająca przycisk "Dalej"
+
   function clickNextButton() {
     const clickableElements = document.querySelectorAll('button span');
     for (const element of clickableElements) {
@@ -170,41 +168,36 @@
     return false;
   }
 
-  // Udostępniamy funkcje w globalnym obiekcie window
   window.fillEmailField = fillEmailField;
   window.fillPasswordField = fillPasswordField;
   window.clickSubmitButton = clickSubmitButton;
   window.clickNextButton = clickNextButton;
 
-  // Opcjonalnie: Nasłuchiwanie komunikatów od background.js
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === "fillForm") {
-     // alert('Wypełniam formularz');
       const emailFilled = fillEmailField(message.email);
       clickNextButton();
       const passwordFilled = fillPasswordField(message.password);
       clickNextButton();
       if (emailFilled && passwordFilled) {
-        clickSubmitButton() || clickNextButton(); // Próbujemy submit, a potem "Dalej"
+        clickSubmitButton() || clickNextButton(); 
       }
     }
   });
 
   function checkUrlForKeywords() {
-    // Pobranie bieżącego URL
     const url = window.location.href;
 
-    // Lista słów kluczowych do sprawdzenia
     const keywords = ['rejestracja', 'register', 'r.php', 'Utwórz_konto', 'signup'];
 
-    // Sprawdzenie, czy URL zawiera któreś ze słów kluczowych
+
     for (let keyword of keywords) {
         if (url.includes(keyword)) {
-            return true;  // Jeśli jedno z słów kluczowych jest obecne, zwróć true
+            return true;  
         }
     }
 
-    return false;  // Jeśli żadne słowo kluczowe nie jest obecne, zwróć false
+    return false;  
 }
 
 
@@ -223,18 +216,18 @@
 
     let fieldFound = false;
 
-    // Przechodzimy po każdym selektorze
+
     for (const selector of selectors) {
         const inputField = document.querySelector(selector);
         if (inputField) {
-            // Utwórz div dla czerwonego kwadratu
+           
             const redSquare = document.createElement('div');
             redSquare.id = "gen-password-button";
 
-            // Dodaj czerwony kwadrat do rodzica pola input
+            
             inputField.parentElement.appendChild(redSquare);
 
-            // Ustaw odpowiednią pozycję kwadratu
+           
             const inputRect = inputField.getBoundingClientRect();
             redSquare.style.position = 'absolute';
             redSquare.style.top = `5px`;
