@@ -556,7 +556,7 @@ export const PasswordProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const encryptedPassword = `${encrypted}:${iv}`;
 
       const response = await axios.post<PasswordTable>(
-        `${import.meta.env.VITE_API_URL}/users/${userId}/files/`,
+        `${import.meta.env.VITE_API_URL}/passwords/${userId}/files/`,
         { password: encryptedPassword, platform, login },
         { headers: { Authorization: `Bearer ${state.token}` } }
       );
@@ -564,7 +564,7 @@ export const PasswordProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const strengthResult = zxcvbn(password);
       const strength = (strengthResult.score / 4) * 100;
 
-      const zipResponse = await axios.get(`${import.meta.env.VITE_API_URL}/users/${userId}/files`, {
+      const zipResponse = await axios.get(`${import.meta.env.VITE_API_URL}/passwords/${userId}/files`, {
         responseType: "blob",
         headers: { Authorization: `Bearer ${state.token}` },
       });

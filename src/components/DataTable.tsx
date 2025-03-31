@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -11,7 +11,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { ArrowUpDown, LogIn } from "lucide-react";
+import { ArrowUpDown, LogIn, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -25,7 +25,7 @@ import {
 import axios from "axios";
 import { usePasswordContext } from "../data/PasswordContext";
 import JSZip from "jszip";
-import { findIconUrl } from "@/lib/functions";
+import { findIconUrl, getLoginUrl } from "@/lib/functions";
 export type Payment = {
   id: string;
   amount: number;
@@ -174,6 +174,83 @@ export function DataTable() {
   const [rowSelection, setRowSelection] = React.useState({});
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [email, setEmail] = useState<string | null>(null);
+  const [password, setPassword] = useState<string | null>(null);
+  const [url, setUrl] = useState<string | null>(null);
+ const {addPassword} = usePasswordContext(); // Pobieramy kontekst
+  useEffect(() => {
+    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+        try {
+            const [result] = await chrome.scripting.executeScript({
+                target: { tabId: tabs[0].id ?? -1 },
+                world: "MAIN",
+                func: () => {
+                    const emailSelectors = [
+                        '#emailId',
+                        '#login',
+                        'input[name="email"]',
+                        'input[name="username"]',
+                        'input[name="reg_email__"]',
+                        'input[type="email"]',
+                        'input[autocomplete="username"]'
+                    ];
+                    const passwordSelectors = [
+                        '#password',
+                        '#pass',
+                        'input[name="password"]',
+                        'input[type="password"]',
+                        'input[autocomplete="current-password"]'
+                    ];
+
+                    let emailValue = null;
+                    let passwordValue = null;
+
+                    for (const selector of emailSelectors) {
+                        const emailInput = document.querySelector(selector);
+                        if (emailInput instanceof HTMLInputElement && emailInput.value) {
+                            emailValue = emailInput.value;
+                            break;
+                        }
+                    }
+
+                    for (const selector of passwordSelectors) {
+                        const passwordInput = document.querySelector(selector);
+                        if (passwordInput instanceof HTMLInputElement && passwordInput.value) {
+                            passwordValue = passwordInput.value;
+                            break;
+                        }
+                    }
+
+                    // Pobierz URL strony
+                    const pageUrl = window.location.href;
+                      console.log({
+                        email: emailValue,
+                        password: passwordValue,
+                        url: pageUrl
+                    })
+                    return {
+                        email: emailValue,
+                        password: passwordValue,
+                        url: pageUrl
+                    };
+                }
+            });
+
+            if (result && result.result) {
+                const { email, password, url } = result.result;
+                setEmail(email || null);
+                setPassword(password || null);
+                setUrl(url || null);
+
+                
+            }
+        } catch (error) {
+            console.error('Błąd przy pobieraniu danych:', error);
+        }
+    });
+}, []);
+
+
 
   const fetchData = async () => {
     const token = state.token;
@@ -229,6 +306,17 @@ export function DataTable() {
   if (loading) return <div>Loading...</div>;
   if (error) return <div>{error}</div>;
 
+  async function add() {
+    try {
+      console.log(email, password, url);
+      await addPassword(password ?? "", getLoginUrl(url ?? "") , email ?? "");
+    } catch (err) {
+      console.error("Błąd podczas dodawania hasła:", error);
+    } finally {
+      fetchData();
+    }
+    
+  }
   return (
     <div className="w-full">
       <div className="flex items-center justify-between py-4">
@@ -240,6 +328,15 @@ export function DataTable() {
           }
           className="max-w-sm"
         />
+        <Button
+      
+          size="sm"
+          onClick={add}
+          disabled={password == null || email == null || url == null}
+          className="ml-2"
+        >
+          <Save className=" h-4 w-4" />
+        </Button>
       </div>
       <div className="rounded-md border">
         <Table>

@@ -6,6 +6,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { TableWidget } from './components/TableWidget'
 import { PasswordProvider } from './data/PasswordContext'
 import GenPasswordButton from './components/GenPasswordButton'
+import { Test } from "./components/Test";
 //import { DataTable } from './components/DataTable'
 
 function App() {
@@ -58,7 +59,7 @@ function App() {
       </TabsContent>
       </Tabs>
       
-      
+      <Test />
       </PasswordProvider>
       
     </div>
