@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -22,10 +22,22 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import axios from "axios";
 import { usePasswordContext } from "../data/PasswordContext";
 import JSZip from "jszip";
-import { findIconUrl, getLoginUrl } from "@/lib/functions";
+import { findIconUrl, getLoginUrl } from '@/lib/icons';
+import api from "@/lib/api";
+import { RecoverMasterkeyDialog } from "./RecoverMasterKeyDialog";
+
+/**
+ * Interfejs reprezentujący dane w tabeli haseł.
+ * @interface Payment
+ * @property {string} id - Unikalny identyfikator rekordu.
+ * @property {number} amount - Wartość numeryczna (używana do celów logowania, domyślnie 0).
+ * @property {string} status - URL do logo serwisu.
+ * @property {string} email - Login lub adres e-mail użytkownika.
+ * @property {string} [platform] - Nazwa serwisu (opcjonalne).
+ * @property {string} [passwordfile] - Nazwa pliku z zaszyfrowanym hasłem (opcjonalne).
+ */
 export type Payment = {
   id: string;
   amount: number;
@@ -35,13 +47,25 @@ export type Payment = {
   passwordfile?: string; // Dodajemy pole na nazwę pliku z hasłem
 };
 
-type LoginEntry = {
+/**
+ * Interfejs reprezentujący wpis logowania.
+ * @interface LoginEntry
+ * @property {string} timestamp - Czas logowania w formacie ISO.
+ * @property {string} user_id - Identyfikator użytkownika.
+ * @property {string} login - Login lub adres e-mail.
+ * @property {string} page - URL strony logowania.
+ */
+export type LoginEntry = {
   timestamp: string;
   user_id: string;
   login: string;
   page: string;
 };
 
+/**
+ * Definicja kolumn tabeli haseł.
+ * @type {ColumnDef<Payment>[]}
+ */
 export const columns: ColumnDef<Payment>[] = [
   {
     accessorKey: "platform",
@@ -80,11 +104,14 @@ export const columns: ColumnDef<Payment>[] = [
     accessorKey: "amount",
     header: () => <div className="text-right">Zaloguj</div>,
     cell: ({ row }) => {
-      const { state } = usePasswordContext(); // Pobieramy kontekst
+      const { state, setMasterkey } = usePasswordContext(); // Pobieramy kontekst
       const login = row.getValue("email") as string;
       const platform = row.original.platform || "Nieznany serwis"; // Nazwa serwisu
       const passwordfile = row.original.passwordfile; // Nazwa pliku z hasłem
-
+      const [isRecoverDialogOpen, setIsRecoverDialogOpen] = useState(false);
+      const handleDecryptionFail = () => {
+        setIsRecoverDialogOpen(true);
+      };
       const handleLoginClick = async () => {
         try {
           if (!state.zip || !state.encryptionKey || !passwordfile) {
@@ -105,13 +132,13 @@ export const columns: ColumnDef<Payment>[] = [
       login: email,
       page: url,
     };
-   try { await axios.post<LoginEntry>(
-    `${import.meta.env.VITE_API_URL}/users/${state.currentUser?.id}/logins/`,
-    loginEntry,
-    { headers: { Authorization: `Bearer ${state.token}` } }
+   try { await api.post<LoginEntry>(
+    `/users/${state.currentUser?.id}/logins/`,
+    loginEntry
   );
 //alert("Zapisano logowanie");
 } catch (error) {
+  handleDecryptionFail();
    // alert("Błąd podczas zapisywania logowania"+error);
   }
     chrome.runtime.sendMessage({ action: "fillForm", email, password, url });
@@ -132,14 +159,30 @@ export const columns: ColumnDef<Payment>[] = [
           >
             <LogIn className="w-5 h-5" />
           </Button>
+          <RecoverMasterkeyDialog
+            isDialogOpen={isRecoverDialogOpen}
+            setIsDialogOpen={setIsRecoverDialogOpen}
+            setMasterkey={setMasterkey}
+
+          />
         </div>
       );
     },
   },
 ];
 
-// Funkcja do odszyfrowania hasła (przeniesiona z PasswordContext dla kompletności)
-const extractPasswordFromZip = async (zip: JSZip, filename: string, key: CryptoKey) => {
+
+/**
+ * Odszyfrowuje hasło z pliku ZIP przy użyciu klucza szyfrowania.
+ * @function extractPasswordFromZip
+ * @async
+ * @param {JSZip} zip - Obiekt ZIP zawierający zaszyfrowane hasło.
+ * @param {string} filename - Nazwa pliku z hasłem.
+ * @param {CryptoKey} key - Klucz szyfrowania.
+ * @returns {Promise<string>} Odszyfrowane hasło.
+ * @throws {Error} Jeśli plik nie istnieje lub odszyfrowanie się nie powiedzie.
+ */
+export const extractPasswordFromZip = async (zip: JSZip, filename: string, key: CryptoKey) => {
   const file = zip.file(filename);
   if (!file) throw new Error("Plik nie znaleziony w ZIP");
   const encryptedData = await file.async("string");
@@ -155,7 +198,13 @@ const extractPasswordFromZip = async (zip: JSZip, filename: string, key: CryptoK
   return decoder.decode(decrypted);
 };
 
-const base64ToArrayBuffer = (base64: string): ArrayBuffer => {
+/**
+ * Konwertuje dane w formacie base64 na ArrayBuffer.
+ * @function base64ToArrayBuffer
+ * @param {string} base64 - Dane w formacie base64.
+ * @returns {ArrayBuffer} Przekonwertowane dane.
+ */
+export const base64ToArrayBuffer = (base64: string): ArrayBuffer => {
   const binary = atob(base64);
   const len = binary.length;
   const bytes = new Uint8Array(len);
@@ -165,15 +214,43 @@ const base64ToArrayBuffer = (base64: string): ArrayBuffer => {
   return bytes.buffer;
 };
 
+/**
+ * Komponent renderujący tabelę z danymi haseł, umożliwiającą filtrowanie, sortowanie i automatyczne logowanie.
+ * Pobiera dane z API oraz z aktywnej karty przeglądarki, aby umożliwić zapis nowych haseł.
+ * 
+ * @function DataTable
+ * @returns {JSX.Element} Tabela z danymi haseł lub komunikaty o ładowaniu/błędzie.
+ * 
+ * @example
+ * ```tsx
+ * import { DataTable } from '@/components/DataTable';
+ * 
+ * <DataTable />
+ * ```
+ * 
+ * @remarks
+ * - Komponent używa biblioteki `@tanstack/react-table` do zarządzania tabelą.
+ * - Pobiera dane z API za pomocą `api.get` i mapuje je na format `Payment`.
+ * - Wykorzystuje kontekst `usePasswordContext` do zarządzania stanem aplikacji.
+ * - Umożliwia automatyczne wypełnianie formularzy logowania za pomocą wiadomości Chrome (`chrome.runtime.sendMessage`).
+ * - Pobiera dane z aktywnej karty przeglądarki (email, hasło, URL) za pomocą `chrome.scripting.executeScript`.
+ * - Obsługuje zapis nowych haseł za pomocą funkcji `addPassword` z kontekstu.
+ * - W przypadku nieudanego odszyfrowania otwiera dialog `RecoverMasterkeyDialog`.
+ * 
+ * @see {@link https://tanstack.com/table/v8} - Dokumentacja TanStack Table.
+ * @see {@link https://developer.chrome.com/docs/extensions/reference/} - Dokumentacja Chrome Extensions API.
+ * @see {@link usePasswordContext} - Kontekst zarządzania hasłami.
+ * @see {@link RecoverMasterkeyDialog} - Dialog odzyskiwania klucza głównego.
+ */
 export function DataTable() {
   const { state } = usePasswordContext();
-  const [data, setData] = React.useState<Payment[]>([]);
-  const [sorting, setSorting] = React.useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
-  const [rowSelection, setRowSelection] = React.useState({});
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
+  const [data, setData] = useState<Payment[]>([]);
+  const [sorting, setSorting] =useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [rowSelection, setRowSelection] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
   const [password, setPassword] = useState<string | null>(null);
   const [url, setUrl] = useState<string | null>(null);
@@ -253,13 +330,10 @@ export function DataTable() {
 
 
   const fetchData = async () => {
-    const token = state.token;
 
     try {
       setLoading(true);
-      const response = await axios.get<PasswordTable[]>(`${import.meta.env.VITE_API_URL}/passwords`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await api.get<PasswordTable[]>(`/passwords`);
 
       const mappedData: Payment[] = response.data.map((password) => ({
         id: password.id,

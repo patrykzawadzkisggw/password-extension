@@ -1,9 +1,12 @@
 import React, { createContext, useContext, useReducer, useEffect, useState } from "react";
-import axios from "axios";
 import { toast } from "sonner";
 import JSZip from "jszip";
 import zxcvbn from "zxcvbn";
+import api from "@/lib/api";
 
+/**
+ * Typ reprezentujący tabelę haseł.
+ */
 export type PasswordTable = {
   id: string;
   passwordfile: string;
@@ -12,6 +15,9 @@ export type PasswordTable = {
   login: string;
 };
 
+/**
+ * Typ reprezentujący historię haseł.
+ */
 export type PasswordHistory = {
   id: string;
   platform: string;
@@ -20,6 +26,9 @@ export type PasswordHistory = {
   timestamp: string;
 };
 
+/**
+ * Typ reprezentujący zaufane urządzenie.
+ */
 export type TrustedDevice = {
   user_id: string;
   device_id: string;
@@ -27,6 +36,9 @@ export type TrustedDevice = {
   is_trusted: boolean;
 };
 
+/**
+ * Typ reprezentujący użytkownika.
+ */
 export type User = {
   id: string;
   first_name: string;
@@ -35,6 +47,9 @@ export type User = {
   password: string;
 };
 
+/**
+ * Typ reprezentujący wpis logowania.
+ */
 export type LoginEntry = {
   timestamp: string;
   user_id: string;
@@ -42,6 +57,9 @@ export type LoginEntry = {
   page: string;
 };
 
+/**
+ * Typ reprezentujący stan kontekstu haseł.
+ */
 type PasswordState = {
   passwords: PasswordTable[];
   history: PasswordHistory[];
@@ -54,6 +72,9 @@ type PasswordState = {
   encryptionKey?: CryptoKey;
 };
 
+/**
+ * Typ reprezentujący akcje w kontekście haseł.
+ */
 type PasswordAction =
   | { type: "SET_DATA"; payload: { passwords: PasswordTable[]; trustedDevices: TrustedDevice[]; currentUser: User; zip: JSZip } }
   | { type: "SET_LOADING"; payload: boolean }
@@ -73,7 +94,12 @@ type PasswordAction =
   | { type: "SET_ZIP"; payload: JSZip }
   | { type: "SET_ENCRYPTION_KEY"; payload: CryptoKey };
 
-
+/**
+ * Reduktor stanu kontekstu haseł.
+ * @param state Aktualny stan kontekstu haseł.
+ * @param action Akcja do wykonania na stanie.
+ * @returns Zaktualizowany stan kontekstu haseł.
+ */
 const passwordReducer = (state: PasswordState, action: PasswordAction): PasswordState => {
   switch (action.type) {
     case "SET_DATA":
@@ -163,7 +189,12 @@ const passwordReducer = (state: PasswordState, action: PasswordAction): Password
   }
 };
 
-
+/**
+ * Funkcja szyfrująca klucz główny (masterkey) za pomocą hasła.
+ * @param masterkey Klucz główny do zaszyfrowania.
+ * @param password Hasło do szyfrowania.
+ * @returns Zaszyfrowany klucz główny w formacie base64.
+ */
 export const encryptMasterkey = async (masterkey: string, password: string): Promise<string> => {
   const encoder = new TextEncoder();
   const salt = crypto.getRandomValues(new Uint8Array(16));
@@ -189,6 +220,12 @@ export const encryptMasterkey = async (masterkey: string, password: string): Pro
   return arrayBufferToBase64(result.buffer);
 };
 
+/**
+ * Funkcja deszyfrująca klucz główny (masterkey) za pomocą hasła.
+ * @param encryptedMasterkeyBase64 Zaszyfrowany klucz główny w formacie base64.
+ * @param password Hasło do deszyfrowania.
+ * @returns Odszyfrowany klucz główny.
+ */
 export const decryptMasterkey = async (encryptedMasterkeyBase64: string, password: string): Promise<string> => {
   const encryptedData = base64ToArrayBuffer(encryptedMasterkeyBase64);
   const salt = encryptedData.slice(0, 16);
@@ -215,6 +252,11 @@ export const decryptMasterkey = async (encryptedMasterkeyBase64: string, passwor
   return new TextDecoder().decode(decrypted);
 };
 
+/**
+ * Funkcja wyprowadzająca klucz szyfrowania z klucza głównego (masterkey).
+ * @param masterkey Klucz główny.
+ * @returns Klucz szyfrowania.
+ */
 export const deriveEncryptionKeyFromMasterkey = async (masterkey: string): Promise<CryptoKey> => {
   const encoder = new TextEncoder();
   return await crypto.subtle.deriveKey(
@@ -231,6 +273,12 @@ export const deriveEncryptionKeyFromMasterkey = async (masterkey: string): Promi
   );
 };
 
+/**
+ * Funkcja szyfrująca hasło za pomocą klucza szyfrowania.
+ * @param password Hasło do zaszyfrowania.
+ * @param key Klucz szyfrowania.
+ * @returns Zaszyfrowane hasło i wektor inicjalizacyjny (IV).
+ */
 export const encryptPassword = async (password: string, key: CryptoKey): Promise<{ encrypted: string; iv: string }> => {
   const encoder = new TextEncoder();
   const data = encoder.encode(password);
@@ -246,6 +294,13 @@ export const encryptPassword = async (password: string, key: CryptoKey): Promise
   };
 };
 
+/**
+ * Funkcja deszyfrująca hasło za pomocą klucza szyfrowania.
+ * @param encrypted Zaszyfrowane hasło.
+ * @param iv Wektor inicjalizacyjny (IV).
+ * @param key Klucz szyfrowania.
+ * @returns Odszyfrowane hasło.
+ */
 export const decryptPassword = async (encrypted: string, iv: string, key: CryptoKey): Promise<string> => {
   const decoder = new TextDecoder();
   const encryptedData = base64ToArrayBuffer(encrypted);
@@ -258,10 +313,20 @@ export const decryptPassword = async (encrypted: string, iv: string, key: Crypto
   return decoder.decode(decrypted);
 };
 
+/**
+ * Funkcja konwertująca ArrayBuffer na base64.
+ * @param buffer ArrayBuffer do konwersji.
+ * @returns Base64 reprezentacja ArrayBuffer.
+ */
 export const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
   return btoa(String.fromCharCode(...new Uint8Array(buffer)));
 };
 
+/**
+ * Funkcja konwertująca base64 na ArrayBuffer.
+ * @param base64 Base64 do konwersji.
+ * @returns ArrayBuffer reprezentacja base64.
+ */
 export const base64ToArrayBuffer = (base64: string): ArrayBuffer => {
   const binary = atob(base64);
   const len = binary.length;
@@ -272,6 +337,13 @@ export const base64ToArrayBuffer = (base64: string): ArrayBuffer => {
   return bytes.buffer;
 };
 
+/**
+ * Funkcja wyodrębniająca hasło z pliku ZIP.
+ * @param zip Plik ZIP.
+ * @param filename Nazwa pliku.
+ * @param key Klucz szyfrowania.
+ * @returns Odszyfrowane hasło.
+ */
 const extractPasswordFromZip = async (zip: JSZip, filename: string, key: CryptoKey) => {
   const file = zip.file(filename);
   if (!file) throw new Error("Plik nie znaleziony w ZIP");
@@ -280,6 +352,11 @@ const extractPasswordFromZip = async (zip: JSZip, filename: string, key: CryptoK
   return decryptPassword(encrypted, iv, key);
 };
 
+/**
+ * Provider kontekstu haseł.
+ * @param children Dzieci komponentu.
+ * @returns Provider kontekstu haseł.
+ */
 export const PasswordProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(passwordReducer, {
     passwords: [],
@@ -317,11 +394,12 @@ export const PasswordProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     window.location.href = "/login";
   };
 
-  const login = async (login: string, password: string, masterkey: string) => {
+  const login = async (login: string, password: string, masterkey: string, token2: string) => {
     try {
-      const response = await axios.post<{ user: User; token: string }>(`${import.meta.env.VITE_API_URL}/login`, {
+      const response = await api.post<{ user: User; token: string }>(`/login`, {
         login,
         password,
+        token2
       });
       const { user, token } = response.data;
       setToken(token);
@@ -369,9 +447,7 @@ export const PasswordProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const token = state.token;
       if (!token) throw new Error("Brak tokenu JWT");
 
-      const response = await axios.get<LoginEntry[]>(`${import.meta.env.VITE_API_URL}/users/${userId}/logins`, {
-        headers: { Authorization: `Bearer ${state.token}` },
-      });
+      const response = await api.get<LoginEntry[]>(`/users/${userId}/logins`);
 
       const logins = Array.isArray(response.data) ? response.data : [];
       dispatch({ type: "SET_USER_LOGINS", payload: logins });
@@ -396,9 +472,7 @@ export const PasswordProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   
       try {
         
-        const response = await axios.get<User>(`${import.meta.env.VITE_API_URL}/users/me/get`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const response = await api.get<User>(`/users/me/get`);
         dispatch({ type: "UPDATE_USER", payload: response.data });
         dispatch({ type: "SET_TOKEN", payload: token });
   
@@ -418,9 +492,8 @@ export const PasswordProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   
         
         if (!state.zip && response.data.id) {
-          const zipResponse = await axios.get(`${import.meta.env.VITE_API_URL}/passwords/${response.data.id}/files`, {
+          const zipResponse = await api.get(`/passwords/${response.data.id}/files`, {
             responseType: "blob",
-            headers: { Authorization: `Bearer ${token}` },
           });
           const loadedZip = await JSZip.loadAsync(zipResponse.data);
           dispatch({ type: "SET_ZIP", payload: loadedZip });
@@ -467,22 +540,13 @@ export const PasswordProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       try {
         const userId = state.currentUser.id;
         const [passwordsResponse, devicesResponse, userResponse, zipResponse, loginsResponse] = await Promise.all([
-          axios.get<PasswordTable[]>(`${import.meta.env.VITE_API_URL}/passwords`, {
-            headers: { Authorization: `Bearer ${state.token}` },
-          }),
-          axios.get<TrustedDevice[]>(`${import.meta.env.VITE_API_URL}/users/${userId}/trusted-devices`, {
-            headers: { Authorization: `Bearer ${state.token}` },
-          }),
-          axios.get<User>(`${import.meta.env.VITE_API_URL}/users/${userId}`, {
-            headers: { Authorization: `Bearer ${state.token}` },
-          }),
-          axios.get(`${import.meta.env.VITE_API_URL}/passwords/${userId}/files`, {
+          api.get<PasswordTable[]>(`/passwords`),
+          api.get<TrustedDevice[]>(`/users/${userId}/trusted-devices`),
+          api.get<User>(`/users/${userId}`),
+          api.get(`/passwords/${userId}/files`, {
             responseType: "blob",
-            headers: { Authorization: `Bearer ${state.token}` },
           }),
-          axios.get<LoginEntry[]>(`${import.meta.env.VITE_API_URL}/users/${userId}/logins`, {
-            headers: { Authorization: `Bearer ${state.token}` },
-          }),
+          api.get<LoginEntry[]>(`/users/${userId}/logins`),
         ]);
 
         sessionStorage.setItem("passwords", JSON.stringify(passwordsResponse.data));
@@ -555,18 +619,16 @@ export const PasswordProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const { encrypted, iv } = await encryptPassword(password, state.encryptionKey);
       const encryptedPassword = `${encrypted}:${iv}`;
 
-      const response = await axios.post<PasswordTable>(
-        `${import.meta.env.VITE_API_URL}/passwords/${userId}/files/`,
-        { password: encryptedPassword, platform, login },
-        { headers: { Authorization: `Bearer ${state.token}` } }
+      const response = await api.post<PasswordTable>(
+        `/passwords/${userId}/files/`,
+        { password: encryptedPassword, platform, login }
       );
 
       const strengthResult = zxcvbn(password);
       const strength = (strengthResult.score / 4) * 100;
 
-      const zipResponse = await axios.get(`${import.meta.env.VITE_API_URL}/passwords/${userId}/files`, {
+      const zipResponse = await api.get(`/passwords/${userId}/files`, {
         responseType: "blob",
-        headers: { Authorization: `Bearer ${state.token}` },
       });
       const updatedZip = await JSZip.loadAsync(zipResponse.data);
 
@@ -604,19 +666,18 @@ export const PasswordProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       const { encrypted, iv } = await encryptPassword(newPassword, state.encryptionKey);
       const encryptedPassword = `${encrypted}:${iv}`;
-
-      const response = await axios.put<PasswordTable>(
-        `${import.meta.env.VITE_API_URL}/users/${userId}/passwords/${platform}/${login}`,
+      const platform2 = encodeURIComponent(platform);
+      const login2 = encodeURIComponent(login);
+      const response = await api.put<PasswordTable>(
+        `/passwords/${userId}/passwords/${platform2}/${login2}`,
         { new_password: encryptedPassword },
-        { headers: { Authorization: `Bearer ${state.token}` } }
       );
 
       const strengthResult = zxcvbn(newPassword);
       const strength = (strengthResult.score / 4) * 100;
 
-      const zipResponse = await axios.get(`${import.meta.env.VITE_API_URL}/users/${userId}/files`, {
+      const zipResponse = await api.get(`/passwords/${userId}/files`, {
         responseType: "blob",
-        headers: { Authorization: `Bearer ${state.token}` },
       });
       const updatedZip = await JSZip.loadAsync(zipResponse.data);
 
@@ -624,7 +685,9 @@ export const PasswordProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         type: "SET_DATA",
         payload: {
           passwords: state.passwords.map((p) =>
-            p.platform === platform && p.login === login ? response.data : p
+            {
+              if(p.platform === platform && p.login === login) console.log("Zaktualizowane hasło:", response.data);
+              return p.platform === platform && p.login === login ? response.data : p}
           ),
           trustedDevices: state.trustedDevices,
           currentUser: state.currentUser!,
@@ -650,17 +713,16 @@ export const PasswordProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const deletePassword = async (platform: string, login: string) => {
+    console.log(login);
     try {
       const userId = state.currentUser?.id;
       if (!userId || !state.token) throw new Error("Brak tokenu JWT lub niezalogowany użytkownik");
+      const platform2 = encodeURIComponent(platform);
+      const login2 = encodeURIComponent(login);
+      await api.delete(`/passwords/${userId}/passwords/${platform2}/${login2}`);
 
-      await axios.delete(`${import.meta.env.VITE_API_URL}/users/${userId}/passwords/${platform}/${login}`, {
-        headers: { Authorization: `Bearer ${state.token}` },
-      });
-
-      const zipResponse = await axios.get(`${import.meta.env.VITE_API_URL}/users/${userId}/files`, {
+      const zipResponse = await api.get(`/passwords/${userId}/files`, {
         responseType: "blob",
-        headers: { Authorization: `Bearer ${state.token}` },
       });
       const updatedZip = await JSZip.loadAsync(zipResponse.data);
 
@@ -687,10 +749,9 @@ export const PasswordProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const userId = state.currentUser?.id;
       if (!userId || !state.token) throw new Error("Brak tokenu JWT lub niezalogowany użytkownik");
 
-      const response = await axios.patch<TrustedDevice>(
-        `${import.meta.env.VITE_API_URL}/users/${userId}/trusted-devices`,
+      const response = await api.patch<TrustedDevice>(
+        `/users/${userId}/trusted-devices`,
         { device_id, user_agent, is_trusted },
-        { headers: { Authorization: `Bearer ${state.token}` } }
       );
 
       dispatch({ type: "ADD_OR_UPDATE_DEVICE", payload: response.data });
@@ -710,9 +771,7 @@ export const PasswordProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const userId = state.currentUser?.id;
       if (!userId || !state.token) throw new Error("Brak tokenu JWT lub niezalogowany użytkownik");
 
-      await axios.delete(`${import.meta.env.VITE_API_URL}/users/${userId}/trusted-devices/${device_id}`, {
-        headers: { Authorization: `Bearer ${state.token}` },
-      });
+      await api.delete(`/users/${userId}/trusted-devices/${device_id}`);
 
       dispatch({ type: "DELETE_DEVICE", payload: { device_id } });
       toast.success("Urządzenie usunięte!", {
@@ -731,9 +790,7 @@ export const PasswordProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const token = state.token;
       if (!token) throw new Error("Brak tokenu JWT");
 
-      const response = await axios.get<User>(`${import.meta.env.VITE_API_URL}/users/${userId}`, {
-        headers: { Authorization: `Bearer ${state.token}` },
-      });
+      const response = await api.get<User>(`/users/${userId}`);
       dispatch({ type: "UPDATE_USER", payload: response.data });
       toast.success("Dane użytkownika pobrane!", {
         description: `Pobrano dane dla użytkownika ${response.data.login}`,
@@ -746,22 +803,20 @@ export const PasswordProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  const addUser = async (first_name: string, last_name: string, login: string, password: string, masterkey: string) => {
+  const addUser = async (first_name: string, last_name: string, login: string, password: string, token: string) => {
+    //console.log("Dodawanie użytkownika:", first_name, last_name, login, password, token);
     try {
-      const response = await axios.post<User>(`${import.meta.env.VITE_API_URL}/users`, {
+      const response = await api.post<User>(`/users`, {
         first_name,
         last_name,
         login,
         password,
+        token
       });
       const user = response.data;
       dispatch({ type: "ADD_USER", payload: user });
 
-      const encryptedMasterkey = await encryptMasterkey(masterkey, "123");
-      localStorage.setItem(`masterkey`, encryptedMasterkey);
-
-      const encryptionKey = await deriveEncryptionKeyFromMasterkey(masterkey);
-      dispatch({ type: "SET_ENCRYPTION_KEY", payload: encryptionKey });
+      
 
       toast.success("Użytkownik dodany!", {
         description: `Dodano użytkownika ${login} i zapisano masterkey.`,
@@ -776,9 +831,11 @@ export const PasswordProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const setMasterkey = async (masterkey: string) => {
     try {
-      const userId = state.currentUser?.id;
-      if (!userId || !state.token) {
-        throw new Error("Brak użytkownika lub tokenu. Zaloguj się ponownie.");
+      let userId  = state.currentUser?.id;
+      if (!userId) {
+        const response = await api.get<User>(`/users/me/get`);
+        dispatch({ type: "UPDATE_USER", payload: response.data });
+        userId = response.data.id;
       }
 
  
@@ -787,9 +844,8 @@ export const PasswordProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
      
       if (!state.zip) {
-        const zipResponse = await axios.get(`${import.meta.env.VITE_API_URL}/users/${userId}/files`, {
+        const zipResponse = await api.get(`/passwords/${userId}/files`, {
           responseType: "blob",
-          headers: { Authorization: `Bearer ${state.token}` },
         });
         const loadedZip = await JSZip.loadAsync(zipResponse.data);
         dispatch({ type: "SET_ZIP", payload: loadedZip });
@@ -799,8 +855,9 @@ export const PasswordProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const encryptedMasterkey = await encryptMasterkey(masterkey, "123");
       localStorage.setItem(`masterkey`, encryptedMasterkey);
 
-      
+      if(!state.token) setToken("123");
       if (state.passwords.length === 0) {
+        
         setShouldFetchData(true);
       }
 
@@ -829,22 +886,12 @@ export const PasswordProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const token = state.token;
       if (!token) throw new Error("Brak tokenu JWT");
 
-      const response = await axios.patch<User>(
-        `${import.meta.env.VITE_API_URL}/users/${userId}`,
-        { first_name, last_name, login, password },
-        { headers: { Authorization: `Bearer ${state.token}` } }
+      const response = await api.patch<User>(
+        `/users/${userId}`,
+        { first_name, last_name, login, password }
       );
       dispatch({ type: "UPDATE_USER", payload: response.data });
 
-      if (password) {
-        const encryptedMasterkey = localStorage.getItem(`masterkey`);
-        if (encryptedMasterkey && state.encryptionKey) {
-          const decryptedMasterkey = await decryptMasterkey(encryptedMasterkey, state.currentUser!.password);
-          const newEncryptedMasterkey = await encryptMasterkey(decryptedMasterkey, password);
-          localStorage.setItem(`masterkey`, newEncryptedMasterkey);
-          toast.info("Zaktualizowano masterkey w localStorage po zmianie hasła.", { duration: 3000 });
-        }
-      }
 
       toast.success("Dane użytkownika zaktualizowane!", {
         description: `Zaktualizowano dane dla użytkownika ${response.data.login}`,
@@ -854,6 +901,29 @@ export const PasswordProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       console.error("Błąd aktualizacji użytkownika:", error);
       toast.error("Błąd!", { description: "Nie udało się zaktualizować danych użytkownika.", duration: 3000 });
       throw error;
+    }
+  };
+
+  const fetchPasswords = async () => {
+    if (!state.token) {
+      toast.error("Błąd!", { description: "Brak tokenu autoryzacyjnego. Zaloguj się ponownie.", duration: 3000 });
+      return;
+    }
+    console.log("Fetching passwords from API...");
+    dispatch({ type: "SET_LOADING", payload: true });
+    try {
+      const response = await api.get<PasswordTable[]>(`/passwords`);
+      const passwords = response.data || [];
+      dispatch({ type: "SET_PASSWORDS", payload: passwords });
+      sessionStorage.setItem("passwords", JSON.stringify(passwords)); // Optionally update session storage
+      console.log("Passwords fetched and set successfully.");
+      // Optional: Add a success toast if needed, though it might be noisy if called often
+      // toast.success("Lista haseł zaktualizowana!", { duration: 2000 });
+    } catch (error) {
+      console.error("Błąd pobierania listy haseł:", error);
+      toast.error("Błąd!", { description: "Nie udało się pobrać listy haseł z API.", duration: 3000 });
+    } finally {
+      dispatch({ type: "SET_LOADING", payload: false });
     }
   };
 
@@ -875,6 +945,7 @@ export const PasswordProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         getUserLogins,
         login,
         setMasterkey,
+        fetchPasswords
       }}
     >
       {children}
@@ -882,6 +953,10 @@ export const PasswordProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   );
 };
 
+/**
+ * Hook do korzystania z kontekstu haseł.
+ * @returns Kontekst haseł.
+ */
 export const usePasswordContext = () => {
   const context = useContext(PasswordContext);
   if (!context) {
@@ -890,6 +965,9 @@ export const usePasswordContext = () => {
   return context;
 };
 
+/**
+ * Typ kontekstu haseł.
+ */
 type PasswordContextType = {
   state: PasswordState;
   copyToClipboard: (passwordfile: string, platform: string, login: string, onDecryptionFail?: () => void) => Promise<void>;
@@ -899,13 +977,14 @@ type PasswordContextType = {
   addOrUpdateTrustedDevice: (device_id: string, user_agent: string, is_trusted: boolean) => Promise<void>;
   deleteTrustedDevice: (device_id: string) => Promise<void>;
   getUser: (userId: string) => Promise<void>;
-  addUser: (first_name: string, last_name: string, login: string, password: string, masterkey: string) => Promise<void>;
+  addUser: (first_name: string, last_name: string, login: string, password: string, token: string) => Promise<void>;
   updateUser: (userId: string, first_name?: string, last_name?: string, login?: string, password?: string) => Promise<void>;
   setToken: (token: string | null) => void;
   logout: () => void;
   getUserLogins: (userId: string) => Promise<LoginEntry[]>;
-  login: (login: string, password: string, masterkey: string) => Promise<void>;
+  login: (login: string, password: string, masterkey: string, token2: string) => Promise<void>;
   setMasterkey: (masterkey: string) => Promise<void>;
+  fetchPasswords: () => Promise<void>;
 };
 
 const PasswordContext = createContext<PasswordContextType | undefined>(undefined);

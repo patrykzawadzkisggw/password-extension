@@ -7,7 +7,30 @@ import { ClipboardCopy, RefreshCcw } from "lucide-react";
 
 import generator from "generate-password-browser";
 
-
+/**
+ * Komponent generujący i wyświetlający hasło z możliwością konfiguracji długości, użycia cyfr i znaków specjalnych.
+ * Umożliwia kopiowanie wygenerowanego hasła do schowka.
+ * 
+ * @function GenPasswordButton
+ * @returns {JSX.Element} Interfejs użytkownika z polami do konfiguracji i generowania hasła.
+ * 
+ * @example
+ * ```tsx
+ * import GenPasswordButton from '@/components/GenPasswordButton';
+ * 
+ * <GenPasswordButton />
+ * ```
+ * 
+ * @remarks
+ * - Komponent używa biblioteki `generate-password-browser` do generowania haseł.
+ * - Hasło jest generowane z uwzględnieniem długości, cyfr, znaków specjalnych, wielkich i małych liter, z wykluczeniem podobnych znaków.
+ * - Kopiowanie do schowka używa API `navigator.clipboard`.
+ * - W przypadku błędu kopiowania, komunikat jest logowany do konsoli.
+ * - Komponent zawiera interaktywne elementy UI, takie jak `Slider` do ustawiania długości hasła i `Switch` do włączania/wyłączania cyfr oraz znaków specjalnych.
+ * 
+ * @see {@link https://www.npmjs.com/package/generate-password-browser} - Dokumentacja generate-password-browser.
+ * @see {@link https://developer.mozilla.org/en-US/docs/Web/API/Clipboard_API} - Dokumentacja Clipboard API.
+ */
 export default function GenPasswordButton() {
   const [password, setPassword] = useState<string>("");
   const [length, setLength] = useState(12);

@@ -1,6 +1,32 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import PopoverButton from './PopoverButton';
+
+/**
+ * Komponent dodający przycisk kontekstowy (`PopoverButton`) obok pól input typu hasło w niereactowym kodzie strony.
+ * Obserwuje zmiany w DOM-ie, aby dynamicznie wykrywać pola haseł i renderować przycisk w odpowiednim miejscu.
+ * 
+ * @function PasswordButtonAdder
+ * @returns {JSX.Element} Kontener z informacją oraz portal renderujący `PopoverButton` obok pola hasła.
+ * 
+ * @example
+ * ```tsx
+ * import PasswordButtonAdder from '@/components/PasswordButtonAdder';
+ * 
+ * <PasswordButtonAdder />
+ * ```
+ * 
+ * @remarks
+ * - Komponent korzysta z `MutationObserver` do monitorowania zmian w DOM-ie, co pozwala na dynamiczne wykrywanie pól haseł.
+ * - Przycisk (`PopoverButton`) jest renderowany za pomocą `createPortal`, aby umieścić go w niereactowym drzewie DOM.
+ * - Pola haseł są identyfikowane na podstawie atrybutów `type`, `name`, `id` lub `autocomplete`.
+ * - Komponent wymaga, aby element `body` był dostępny w dokumencie.
+ * - Przycisk jest pozycjonowany absolutnie obok pola hasła, a jego kontener (`span`) jest dynamicznie tworzony i stylizowany.
+ * 
+ * @see {@link https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver} - Dokumentacja MutationObserver.
+ * @see {@link https://react.dev/reference/react-dom/createPortal} - Dokumentacja createPortal.
+ * @see {@link PopoverButton} - Komponent przycisku kontekstowego.
+ */
 const PasswordButtonAdder: React.FC = () => {
   const [buttonContainer, setButtonContainer] = useState<HTMLElement | null>(null);
   const [targetInput, setTargetInput] = useState<HTMLInputElement | null>(null);
