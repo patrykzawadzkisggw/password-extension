@@ -60,7 +60,7 @@ export type LoginEntry = {
 /**
  * Typ reprezentujący stan kontekstu haseł.
  */
-type PasswordState = {
+export type PasswordState = {
   passwords: PasswordTable[];
   history: PasswordHistory[];
   trustedDevices: TrustedDevice[];
@@ -100,7 +100,7 @@ type PasswordAction =
  * @param action Akcja do wykonania na stanie.
  * @returns Zaktualizowany stan kontekstu haseł.
  */
-const passwordReducer = (state: PasswordState, action: PasswordAction): PasswordState => {
+export const passwordReducer = (state: PasswordState, action: PasswordAction): PasswordState => {
   switch (action.type) {
     case "SET_DATA":
       return {

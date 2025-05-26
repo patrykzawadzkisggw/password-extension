@@ -35,7 +35,7 @@ import { useState } from 'react';
  */
 export const LoginSteps = ({ setMasterkey }: { setMasterkey: (masterkey: string) => Promise<void> }) => {
   const handleOpenLoginPage = () => {
-    chrome.tabs.create({ url: 'http://localhost:5173' });
+    chrome.tabs.create({ url: 'https://securebox.netlify.app' });
   };
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
