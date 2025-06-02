@@ -124,7 +124,13 @@ export const columns: ColumnDef<Payment>[] = [
 
 
           const email = login;
-    const url = platform;
+          let p="";
+          if (!(platform.startsWith('http://') || platform.startsWith('https://'))) {
+            p="https://";
+          }
+          
+
+    const url = p+platform;
 
     const loginEntry : LoginEntry = {
       timestamp: new Date().toISOString(),
@@ -299,12 +305,19 @@ export function DataTable() {
                     }
 
                     // Pobierz URL strony
-                    const pageUrl = window.location.href;
+                    let pageUrl = window.location.href;
+
+
                       console.log({
                         email: emailValue,
                         password: passwordValue,
                         url: pageUrl
                     })
+                    const queryIndex = pageUrl.indexOf('?');
+
+                    if (queryIndex !== -1) {
+                      pageUrl = pageUrl.substring(0, queryIndex);
+                    }
                     return {
                         email: emailValue,
                         password: passwordValue,

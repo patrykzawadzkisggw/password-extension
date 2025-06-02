@@ -74,7 +74,7 @@ describe('LoginSteps', () => {
     const loginButton = screen.getAllByTestId('button')[0];
     await user.click(loginButton);
 
-    expect(mockChromeTabsCreate).toHaveBeenCalledWith({ url: 'http://localhost:5173' });
+    expect(mockChromeTabsCreate).toHaveBeenCalledWith({ url: 'https://securebox.netlify.app' });
   });
 
   it('otwiera dialog po kliknięciu przycisku wprowadzania', async () => {
